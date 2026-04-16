@@ -187,9 +187,13 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 .naeis-row:active { background: #FFE8C8; }
 .naeis-date { font-weight: 700; color: #7A3000; }
 .naeis-modal-ft { padding: 12px 18px; border-top: 1px solid var(--line); flex-shrink: 0; }
-.naeis-banner { background: #FFF3E0; color: #7A3000; border-bottom: 2px solid var(--amber); padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 54px; z-index: 99; -webkit-tap-highlight-color: transparent; }
+.sticky-banners { position: sticky; top: 54px; z-index: 99; }
+.naeis-banner { background: #FFF3E0; color: #7A3000; border-bottom: 2px solid var(--amber); padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; -webkit-tap-highlight-color: transparent; }
 .naeis-banner:active { opacity: .8; }
 .naeis-banner.hidden { display: none; }
+.dl-remind-banner { background: #FFF0F0; color: #8B0000; border-bottom: 2px solid var(--red); padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; -webkit-tap-highlight-color: transparent; }
+.dl-remind-banner:active { opacity: .8; }
+.dl-remind-banner.hidden { display: none; }
 
 .empty-state { text-align: center; padding: 40px 20px; color: #BBB; font-size: 13px; line-height: 1.8; }
 .empty-state .es-icon { font-size: 38px; display: block; margin-bottom: 8px; opacity: .6; }
@@ -262,9 +266,15 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
   <h1>출결 관리 <span id="hd-year" style="font-weight:400;opacity:.6;font-size:12px"></span></h1>
   <span id="hd-date" class="hd-badge"></span>
 </header>
-<div id="naeis-banner" class="naeis-banner hidden" onclick="showNaeisPendingModal()">
-  <span id="naeis-banner-text">⚠ 나이스 미입력 알림</span>
-  <span style="font-size:18px;line-height:1">›</span>
+<div class="sticky-banners">
+  <div id="naeis-banner" class="naeis-banner hidden" onclick="showNaeisPendingModal()">
+    <span id="naeis-banner-text">⚠ 나이스 미입력 알림</span>
+    <span style="font-size:18px;line-height:1">›</span>
+  </div>
+  <div id="dl-remind-banner" class="dl-remind-banner hidden" onclick="switchTab('deadlines')">
+    <span id="dl-remind-text">📋 서류 기한 임박</span>
+    <span style="font-size:18px;line-height:1">›</span>
+  </div>
 </div>
 
 <main>
@@ -918,6 +928,23 @@ function updateDLBadge() {
   const badge = document.getElementById('dl-badge');
   badge.textContent = n;
   badge.style.display = n > 0 ? 'flex' : 'none';
+  renderDLRemindBanner();
+}
+function renderDLRemindBanner() {
+  const banner = document.getElementById('dl-remind-banner');
+  if (!banner) return;
+  const today = new Date(new Date().toDateString());
+  const urgent = appData.deadlines.filter(dl => {
+    if (dl.submitted) return false;
+    const diff = Math.ceil((parseDate(dl.dueDate) - today) / 86400000);
+    return diff <= 2;
+  });
+  if (!urgent.length) { banner.classList.add('hidden'); return; }
+  const nums = [...new Set(urgent.map(dl => dl.studentNo))].sort((a,b) => a-b);
+  const names = appData.studentNames || {};
+  const labels = nums.map(n => names[n] ? `${n}번(${names[n]})` : `${n}번`);
+  document.getElementById('dl-remind-text').textContent = `📋 서류 기한 임박 — ${labels.join(', ')}`;
+  banner.classList.remove('hidden');
 }
 
 // ===== 누적 현황 =====
@@ -1860,6 +1887,7 @@ function _initApp() {
   renderInitCard();
   renderDetailImportCard();
   renderNaeisBanner();
+  renderDLRemindBanner();
 }
 
 _initApp();
