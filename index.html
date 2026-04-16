@@ -495,6 +495,11 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
     </div>
   </div>
   <div class="card">
+    <div class="card-bd">
+      <button class="btn ghost full" onclick="showOnboarding()">📖 앱 사용 가이드 다시 보기</button>
+    </div>
+  </div>
+  <div class="card">
     <div class="card-hd amber-hd">전체 초기화</div>
     <div class="card-bd"><button class="btn red full" onclick="resetAll()">전체 데이터 삭제</button></div>
   </div>
@@ -1924,8 +1929,12 @@ function showToast(msg) {
 const OB_KEY = 'onboarding_v1';
 let _obStep = 0;
 
+function showOnboarding() {
+  _obStep = 0; renderObStep();
+  document.getElementById('ob-overlay').style.display = 'flex';
+}
 function checkOnboarding() {
-  if (!localStorage.getItem(OB_KEY)) { _obStep = 0; renderObStep(); document.getElementById('ob-overlay').style.display = 'flex'; }
+  if (!localStorage.getItem(OB_KEY)) showOnboarding();
 }
 function finishOnboarding() {
   localStorage.setItem(OB_KEY, '1');
