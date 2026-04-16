@@ -65,6 +65,8 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 .s-row.has-att .s-num-wrap { background: var(--amber); }
 .s-num { font-size: 16px; font-weight: 800; color: var(--navy); }
 .s-row.has-att .s-num { color: white; }
+.s-name { font-size: 12px; color: var(--muted); font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-row.has-att .s-name { font-size: 13px; color: var(--text); font-weight: 600; flex: none; }
 .s-main { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .s-badges { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .s-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -623,6 +625,14 @@ function renderStudentList() {
     const main = document.createElement('div');
     main.className = 's-main';
 
+    const sName = (appData.studentNames || {})[num] || '';
+    if (sName) {
+      const nameEl = document.createElement('div');
+      nameEl.className = 's-name';
+      nameEl.textContent = sName;
+      main.appendChild(nameEl);
+    }
+
     const badges = document.createElement('div');
     badges.className = 's-badges';
     if (a.absent) {
@@ -688,11 +698,20 @@ function renderStudentList() {
       numEl.textContent = num;
       numWrap.appendChild(numEl);
 
+      const cName = (appData.studentNames || {})[num] || '';
+      if (cName) {
+        const nameEl = document.createElement('div');
+        nameEl.className = 's-name';
+        nameEl.textContent = cName;
+        row.appendChild(numWrap); row.appendChild(nameEl);
+      } else {
+        row.appendChild(numWrap);
+      }
+
       const chevron = document.createElement('span');
       chevron.className = 's-chevron';
       chevron.textContent = '›';
-
-      row.appendChild(numWrap); row.appendChild(chevron);
+      row.appendChild(chevron);
       grid.appendChild(row);
     }
     list.appendChild(grid);
