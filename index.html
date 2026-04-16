@@ -1431,7 +1431,7 @@ function renderWeeklyView() {
           if (si.length) b += `<div class="wk-status">${si.join('')}</div>`;
         }
         if (a.memo) b += `<div style="font-size:8px;color:#555;font-style:italic;margin-top:2px">${a.memo}</div>`;
-        html += `<td class="${cls}">${b||'<span style="color:#DDD;font-size:10px">—</span>'}</td>`;
+        html += `<td class="${cls}"${dots?` onclick="goToDate('${d}')" style="cursor:pointer"`:''}>${b||'<span style="color:#DDD;font-size:10px">—</span>'}</td>`;
       });
       html += '</tr>';
     });
