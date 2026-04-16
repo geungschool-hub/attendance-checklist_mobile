@@ -576,7 +576,13 @@ function loadData() {
   } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:26, studentNames:{}, holidays:DEFAULT_HOLIDAYS.map(h=>({...h})) }; }
 }
 function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      showToast('⚠ 저장 공간이 부족합니다.\nJSON 내보내기 후 불필요한 데이터를 정리해주세요.');
+    }
+  }
 }
 
 // ===== 탭 전환 =====
@@ -618,9 +624,8 @@ function checkDisabled(a, field) {
   const hasAny = hasAbs || !!a.late || !!a.earlyLeave || !!a.classMiss;
   const isDA   = v => v==='disease'||v==='approved';
   const needP  = hasAbs || isDA(a.late) || isDA(a.earlyLeave) || isDA(a.classMiss);
-  if (field==='naeis')         return !hasAny;
-  if (field==='parentContact') return !needP;
-  if (field==='docSubmit')     return !hasAbs;
+  if (field==='naeis')     return !hasAny;
+  if (field==='docSubmit') return !hasAbs;
   return true;
 }
 
@@ -875,9 +880,8 @@ function setAtt(num, field, value, skipSheetRefresh) {
 
   const a = rec.attendance[num];
   if (a) {
-    if (checkDisabled(a,'parentContact')) a.parentContact = false;
-    if (checkDisabled(a,'docSubmit'))     a.docSubmit     = false;
-    if (checkDisabled(a,'naeis'))         a.naeis         = false;
+    if (checkDisabled(a,'docSubmit')) a.docSubmit = false;
+    if (checkDisabled(a,'naeis'))     a.naeis     = false;
   }
   if (a && !a.absent && !a.late && !a.earlyLeave && !a.classMiss && !a.parentContact && !a.docSubmit && !a.naeis && !a.memo)
     delete rec.attendance[num];
@@ -1162,7 +1166,7 @@ function studentsWithRecords(fromNum, toNum) {
   Object.values(appData.dailyRecords).forEach(dayRec => {
     for (let n = fromNum; n <= toNum; n++) {
       const r = (dayRec.attendance || {})[n];
-      if (r && (r.absent || r.late || r.earlyLeave || r.classMiss || r.approvedType || r.note)) set.add(n);
+      if (r && (r.absent || r.late || r.earlyLeave || r.classMiss || r.approvedType || r.memo)) set.add(n);
     }
   });
   appData.deadlines.forEach(d => { if (d.studentNo >= fromNum && d.studentNo <= toNum) set.add(d.studentNo); });
