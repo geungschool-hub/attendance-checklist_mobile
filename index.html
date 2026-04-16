@@ -363,6 +363,19 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
     </div>
   </div>
   <div class="card">
+    <div class="card-hd" onclick="toggleNameCard()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+      <span>학생 이름 설정</span>
+      <span id="name-card-arrow" style="font-size:12px;opacity:.8">▶</span>
+    </div>
+    <div id="name-card-body" style="display:none">
+      <div class="card-bd" style="padding-bottom:4px">
+        <p style="font-size:11px;color:#999;margin:0 0 10px">나이스 파일 업로드 시 이름이 있으면 자동으로 채워집니다.</p>
+        <div id="name-grid"></div>
+        <button class="btn primary full" onclick="saveAllNames()" style="margin-top:10px">저장</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
     <div class="card-hd">날짜별 출결 기록 불러오기 (나이스)</div>
     <div class="card-bd">
       <p id="detail-import-msg" style="font-size:13px;color:#666"></p>
@@ -498,7 +511,8 @@ function loadData() {
     if (!appData.importedPeriod)       appData.importedPeriod       = '';
     if (!appData.importedCount)        appData.importedCount        = 0;
     if (!appData.studentCount)         appData.studentCount         = 26;
-  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:26 }; }
+    if (!appData.studentNames)         appData.studentNames         = {};
+  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:26, studentNames:{} }; }
 }
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
@@ -1063,8 +1077,47 @@ function changeStudentCount() {
   document.getElementById('cur-student-count').textContent = newCount;
   renderDailyTab();
   renderStatsTab();
+  renderNameGrid();
   showToast(`인원이 ${newCount}명으로 변경됐습니다.`);
 }
+
+// ===== 학생 이름 설정 =====
+function toggleNameCard() {
+  const body  = document.getElementById('name-card-body');
+  const arrow = document.getElementById('name-card-arrow');
+  const open  = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  arrow.textContent  = open ? '▼' : '▶';
+  if (open) renderNameGrid();
+}
+function renderNameGrid() {
+  const grid = document.getElementById('name-grid');
+  if (!grid) return;
+  const count = studentCount();
+  const names = appData.studentNames || {};
+  let html = '';
+  for (let i = 1; i <= count; i++) {
+    const v = names[i] ? escHtml(names[i]) : '';
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)">
+      <span style="min-width:28px;text-align:right;font-size:12px;font-weight:700;color:var(--navy)">${i}</span>
+      <input type="text" value="${v}" placeholder="이름 입력" data-num="${i}"
+        style="flex:1;border:none;border-bottom:1px solid #CCC;background:transparent;font-size:13px;font-family:inherit;padding:2px 4px;outline:none;color:var(--text)">
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+function saveAllNames() {
+  if (!appData.studentNames) appData.studentNames = {};
+  document.querySelectorAll('#name-grid input').forEach(inp => {
+    const num = +inp.dataset.num;
+    const v   = inp.value.trim();
+    if (v) appData.studentNames[num] = v;
+    else   delete appData.studentNames[num];
+  });
+  saveData();
+  showToast('이름이 저장됐습니다.');
+}
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ===== 날짜별 출결 파일 불러오기 (상세 형식) =====
 const ATT_TYPE_MAP = {
@@ -1105,11 +1158,16 @@ function importDetailedRows(rows) {
     // 헤더 행 건너뜀
     if (String(row[0] || '').includes('일자')) continue;
 
-    const [일자, 번호, , 출결구분, , 사유] = row;
+    const [일자, 번호, 이름Raw, 출결구분, , 사유] = row;
 
     // 번호 carry-forward (연속 행에서 null이면 이전 학생 유지)
     if (번호 !== null && 번호 !== undefined && String(번호).trim() !== '') {
       currentNum = parseInt(String(번호), 10);
+      // 이름 자동 인식 (나이스 파일에 이름 컬럼이 있을 경우)
+      const 이름 = 이름Raw ? String(이름Raw).trim() : '';
+      if (이름 && currentNum >= 1 && !appData.studentNames[currentNum]) {
+        appData.studentNames[currentNum] = 이름;
+      }
     }
     if (!currentNum || currentNum < 1 || currentNum > studentCount()) continue;
     if (!출결구분) continue;
@@ -1288,6 +1346,7 @@ function showStatDetail(num, cat) {
   document.querySelector('.stat-detail-overlay')?.remove();
   const st      = calcStats()[num];
   const catName = { absent:'결석', late:'지각', earlyLeave:'조퇴', classMiss:'결과' }[cat];
+  const sName   = (appData.studentNames || {})[num] || '';
   const d       = st[cat];
   const total   = d.disease + d.unapproved + d.other + d.approved;
   if (!total) return;
@@ -1347,7 +1406,7 @@ function showStatDetail(num, cat) {
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
     <div style="background:white;border-radius:16px;padding:22px 20px;width:100%;max-width:300px;max-height:80vh;overflow-y:auto">
-      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px;text-align:center">${num}번 — ${catName} 내역</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px;text-align:center">${num}번${sName ? ' <span style="font-weight:500">' + sName + '</span>' : ''} — ${catName} 내역</div>
       <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:14px">누적(이전 기록 포함)</div>
       ${rows}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;background:var(--navy);border-radius:10px;padding:12px 16px">
