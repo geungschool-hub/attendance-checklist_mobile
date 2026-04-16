@@ -1003,7 +1003,7 @@ function addDeadlineManual() {
   const type = document.getElementById('dl-type').value;
   const ref  = document.getElementById('dl-ref-date').value;
   const due  = document.getElementById('dl-due-date').value;
-  if (!num||num<1||num>26) { showToast('학생 번호를 1~26 사이로 입력해주세요.'); return; }
+  if (!num||num<1||num>studentCount()) { showToast(`학생 번호를 1~${studentCount()} 사이로 입력해주세요.`); return; }
   if (!due) { showToast('제출 기한을 입력해주세요.'); return; }
   appData.deadlines.push({id:Date.now().toString(),studentNo:num,type,absenceDate:ref||null,dueDate:due,submitted:false});
   saveData();
@@ -1099,10 +1099,24 @@ function importBackup(input) {
   reader.onload = e => {
     try {
       const imp = JSON.parse(e.target.result);
-      if(imp.dailyRecords) appData.dailyRecords = imp.dailyRecords;
-      if(imp.deadlines)    appData.deadlines    = imp.deadlines;
-      if(imp.initialStats) { appData.initialStats=imp.initialStats; if(imp.initialStatsPeriod) appData.initialStatsPeriod=imp.initialStatsPeriod; }
-      saveData(); renderInitCard(); showToast('데이터를 불러왔습니다.');
+      if(imp.dailyRecords)    appData.dailyRecords    = imp.dailyRecords;
+      if(imp.deadlines)       appData.deadlines       = imp.deadlines;
+      if(imp.initialStats)    { appData.initialStats=imp.initialStats; if(imp.initialStatsPeriod) appData.initialStatsPeriod=imp.initialStatsPeriod; }
+      if(imp.studentCount)    appData.studentCount    = imp.studentCount;
+      if(imp.studentNames)    appData.studentNames    = imp.studentNames;
+      if(imp.schoolYear)      appData.schoolYear      = imp.schoolYear;
+      if(imp.holidays)        appData.holidays        = imp.holidays;
+      if(imp.importedDates)   appData.importedDates   = imp.importedDates;
+      if(imp.importedPeriod)  appData.importedPeriod  = imp.importedPeriod;
+      if(imp.importedCount)   appData.importedCount   = imp.importedCount;
+      saveData();
+      document.getElementById('cur-student-count').textContent = studentCount();
+      document.getElementById('cur-student-count-badge').textContent = `(${studentCount()}명)`;
+      const yr = appData.schoolYear || 2026;
+      document.getElementById('hd-year').textContent = yr + '학년도';
+      document.title = `출결 관리 — ${yr}`;
+      renderInitCard(); renderDetailImportCard(); renderDailyTab(); updateDLBadge();
+      showToast('데이터를 불러왔습니다.');
     } catch(err) { showToast('불러오기 실패: '+err.message); }
     input.value='';
   };
@@ -1128,7 +1142,7 @@ function studentsWithRecords(fromNum, toNum) {
   const set = new Set();
   Object.values(appData.dailyRecords).forEach(dayRec => {
     for (let n = fromNum; n <= toNum; n++) {
-      const r = dayRec[n];
+      const r = (dayRec.attendance || {})[n];
       if (r && (r.absent || r.late || r.earlyLeave || r.classMiss || r.approvedType || r.note)) set.add(n);
     }
   });
@@ -1753,10 +1767,11 @@ function renderMonthlyView() {
     const docs     = getRequiredDocs(a.absent, a.approvedType);
 
     html += `<div class="ab-card ${a.docSubmit?'done-card':'pending'}">
-      <div class="ab-row">
-        <span class="ab-date">${+mo}/${+dd}(${dayName})</span>
+      <div class="ab-row" onclick="goToDate('${date}')" style="cursor:pointer;-webkit-tap-highlight-color:transparent">
+        <span class="ab-date" style="text-decoration:underline;text-underline-offset:2px">${+mo}/${+dd}(${dayName})</span>
         <span style="font-size:13px;font-weight:700;color:var(--navy)">${num}번</span>
         <span style="font-size:12px">${label}</span>
+        <span style="margin-left:auto;font-size:16px;color:#CCC;line-height:1">›</span>
       </div>
       <div class="doc-tags">${docs.map(d=>`<span class="doc-tag">${d}</span>`).join('')}</div>
       <div class="status-row">
