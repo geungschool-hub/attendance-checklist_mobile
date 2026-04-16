@@ -544,7 +544,7 @@ function switchTab(tab) {
   if (tab==='stats')     renderStatsTabActive();
   if (tab==='deadlines') renderDeadlinesTab();
   if (tab==='record')    renderWeeklyView();
-  if (tab==='data')      renderInitCard();
+  if (tab==='data')      { renderInitCard(); closeDataCards(); }
 }
 
 // ===== 날짜 이동 =====
@@ -1107,6 +1107,13 @@ function changeStudentCount() {
   renderStatsTab();
   renderNameGrid();
   showToast(`인원이 ${newCount}명으로 변경됐습니다.`);
+}
+
+function closeDataCards() {
+  [['count-card-body','count-card-arrow'],['name-card-body','name-card-arrow']].forEach(([bodyId, arrowId]) => {
+    const b = document.getElementById(bodyId); if (b) b.style.display = 'none';
+    const a = document.getElementById(arrowId); if (a) a.textContent = '▶';
+  });
 }
 
 // ===== 학급 인원 카드 토글 =====
