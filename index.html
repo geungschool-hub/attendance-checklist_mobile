@@ -683,7 +683,7 @@ function openSheet(num) {
     </div>
     <div class="f-group">
       <div class="f-label">메모</div>
-      <input class="memo-inp" id="sheet-memo" type="text" placeholder="특이사항" value="${(a.memo||'').replace(/"/g,'&quot;')}"
+      <input class="memo-inp" id="sheet-memo" type="text" placeholder="특이사항" value="${(a.memo||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
         onblur="setAtt(${num},'memo',this.value.trim())">
     </div>`;
 
@@ -709,12 +709,12 @@ function setAtt(num, field, value, skipSheetRefresh) {
   if (field==='absent' && value!=='approved') rec.attendance[num].approvedType = '';
 
   if (field==='docSubmit') {
-    const dl = appData.deadlines.find(d => d.studentNo===num && d.absenceDate===currentDate && ['absence_report','absence_report_only','field_trip_report'].includes(d.type) && !d.submitted);
+    const dl = appData.deadlines.find(d => d.studentNo===num && d.absenceDate===currentDate && ['absence_report','absence_report_only','field_trip_report'].includes(d.type));
     if (dl) { dl.submitted = !!value; updateDLBadge(); }
   }
 
   if (field==='approvedType') {
-    appData.deadlines = appData.deadlines.filter(d => !(d.studentNo===num && d.absenceDate===currentDate && ['absence_report','absence_report_only','field_trip_report'].includes(d.type) && !d.submitted));
+    appData.deadlines = appData.deadlines.filter(d => !(d.studentNo===num && d.absenceDate===currentDate && ['absence_report','absence_report_only','field_trip_report'].includes(d.type)));
     const due = addSchoolDays(currentDate,5);
     if (value==='menstrual')  { appData.deadlines.push({id:Date.now().toString(),studentNo:num,type:'absence_report_only',absenceDate:currentDate,dueDate:due,submitted:false}); checkMenstrualWarning(num,currentDate); }
     else if (value==='fieldtrip') appData.deadlines.push({id:Date.now().toString(),studentNo:num,type:'field_trip_report',absenceDate:currentDate,dueDate:due,submitted:false});
@@ -722,7 +722,7 @@ function setAtt(num, field, value, skipSheetRefresh) {
     updateDLBadge();
   }
   if (field==='absent' && (!value || value==='unapproved')) {
-    appData.deadlines = appData.deadlines.filter(d => !(d.studentNo===num && ['absence_report','absence_report_only','field_trip_report'].includes(d.type) && d.absenceDate===currentDate && !d.submitted));
+    appData.deadlines = appData.deadlines.filter(d => !(d.studentNo===num && ['absence_report','absence_report_only','field_trip_report'].includes(d.type) && d.absenceDate===currentDate));
     updateDLBadge();
   }
 
@@ -1324,11 +1324,11 @@ function renderWeeklyView() {
         if (a.absent) {
           const ex = a.absent==='approved'&&a.approvedType ? `(${APTYPE[a.approvedType]||a.approvedType})` : '';
           const bc = a.absent==='unapproved' ? 'un' : 'ab';
-          b += `<span class="att-badge ${bc}" style="font-size:9px;padding:2px 4px">${TL[a.absent]}결${ex}</span>`;
+          b += `<span class="att-badge ${bc}" style="font-size:10px;padding:2px 4px">${TL[a.absent]}결${ex}</span>`;
         }
-        if (a.late)       b += `<span class="att-badge la" style="font-size:9px;padding:2px 4px">${TL[a.late]}지각</span>`;
-        if (a.earlyLeave) b += `<span class="att-badge el" style="font-size:9px;padding:2px 4px">${TL[a.earlyLeave]}조퇴</span>`;
-        if (a.classMiss)  b += `<span class="att-badge cm" style="font-size:9px;padding:2px 4px">${TL[a.classMiss]}결과</span>`;
+        if (a.late)       b += `<span class="att-badge la" style="font-size:10px;padding:2px 4px">${TL[a.late]}지각</span>`;
+        if (a.earlyLeave) b += `<span class="att-badge el" style="font-size:10px;padding:2px 4px">${TL[a.earlyLeave]}조퇴</span>`;
+        if (a.classMiss)  b += `<span class="att-badge cm" style="font-size:10px;padding:2px 4px">${TL[a.classMiss]}결과</span>`;
         if (b) {
           const si = [];
           if (!checkDisabled(a,'docSubmit')) si.push(`<span style="font-size:8px;color:${a.docSubmit?'#43A047':'#E67E22'}">${a.docSubmit?'✓서류':'○서류'}</span>`);
@@ -1412,7 +1412,7 @@ function renderMonthlyView() {
   if (!absences.length) { container.innerHTML='<div class="empty-state"><span class="es-icon">✅</span>이번 달 결석 기록이 없습니다</div>'; return; }
 
   const studentCount = new Set(absences.map(x=>x.num)).size;
-  const undone       = absences.filter(x=>!x.a.docSubmit).length;
+  const undone       = absences.filter(x => x.a.absent !== 'unapproved' && !x.a.docSubmit).length;
   const ABSENT_LBL   = { disease:'질병결석', unapproved:'미인정결석', other:'기타결석', approved:'인정결석' };
   const APTYPE_LBL   = { menstrual:'생리통', fieldtrip:'체험학습', other:'그외' };
 
