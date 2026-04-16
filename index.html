@@ -351,16 +351,21 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 <!-- 데이터 탭 -->
 <div id="tab-data" class="tab-pane">
   <div class="card">
-    <div class="card-hd">학급 인원 설정</div>
-    <div class="card-bd">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:13px;color:#555">현재 인원:</span>
-        <span id="cur-student-count" style="font-size:22px;font-weight:800;color:var(--navy)">26</span>
-        <span style="font-size:13px;color:#555">명</span>
-      </div>
-      <div style="display:flex;gap:8px">
-        <input class="form-inp" id="new-student-count" type="number" min="1" max="99" placeholder="새 인원 수" style="flex:1;min-width:0">
-        <button class="btn primary" onclick="changeStudentCount()" style="flex-shrink:0">변경</button>
+    <div class="card-hd" onclick="toggleCountCard()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+      <span>학급 인원 설정 <span id="cur-student-count-badge" style="font-weight:400;font-size:12px;opacity:.7"></span></span>
+      <span id="count-card-arrow" style="font-size:12px;opacity:.8">▶</span>
+    </div>
+    <div id="count-card-body" style="display:none">
+      <div class="card-bd">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:13px;color:#555">현재 인원:</span>
+          <span id="cur-student-count" style="font-size:22px;font-weight:800;color:var(--navy)">26</span>
+          <span style="font-size:13px;color:#555">명</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input class="form-inp" id="new-student-count" type="number" min="1" max="99" placeholder="새 인원 수" style="flex:1;min-width:0">
+          <button class="btn primary" onclick="changeStudentCount()" style="flex-shrink:0">변경</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1097,10 +1102,20 @@ function changeStudentCount() {
   saveData();
   input.value = '';
   document.getElementById('cur-student-count').textContent = newCount;
+  document.getElementById('cur-student-count-badge').textContent = `(${newCount}명)`;
   renderDailyTab();
   renderStatsTab();
   renderNameGrid();
   showToast(`인원이 ${newCount}명으로 변경됐습니다.`);
+}
+
+// ===== 학급 인원 카드 토글 =====
+function toggleCountCard() {
+  const body  = document.getElementById('count-card-body');
+  const arrow = document.getElementById('count-card-arrow');
+  const open  = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  arrow.textContent  = open ? '▼' : '▶';
 }
 
 // ===== 학생 이름 설정 =====
@@ -1705,6 +1720,7 @@ function showToast(msg) {
 function _initApp() {
   loadData();
   document.getElementById('cur-student-count').textContent = studentCount();
+  document.getElementById('cur-student-count-badge').textContent = `(${studentCount()}명)`;
   renderDailyTab();
   updateDLBadge();
   renderInitCard();
