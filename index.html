@@ -296,7 +296,7 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
       <span id="dl-form-arrow" style="font-size:12px;opacity:.8">▶</span>
     </div>
     <div id="dl-form-body" class="card-bd" style="display:none">
-      <div><label class="form-lbl">학생 번호</label><input class="form-inp" id="dl-num" type="number" min="1" max="26" placeholder="1 ~ 26"></div>
+      <div><label class="form-lbl">학생 번호</label><input class="form-inp" id="dl-num" type="number" min="1" max="99" placeholder="번호 입력"></div>
       <div><label class="form-lbl">종류</label>
         <select class="form-inp" id="dl-type">
           <option value="absence_report">결석신고서·증빙서류</option>
@@ -333,6 +333,20 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 
 <!-- 데이터 탭 -->
 <div id="tab-data" class="tab-pane">
+  <div class="card">
+    <div class="card-hd">학급 인원 설정</div>
+    <div class="card-bd">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:13px;color:#555">현재 인원:</span>
+        <span id="cur-student-count" style="font-size:22px;font-weight:800;color:var(--navy)">26</span>
+        <span style="font-size:13px;color:#555">명</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input class="form-inp" id="new-student-count" type="number" min="1" max="99" placeholder="새 인원 수" style="flex:1;min-width:0">
+        <button class="btn primary" onclick="changeStudentCount()" style="flex-shrink:0">변경</button>
+      </div>
+    </div>
+  </div>
   <div class="card">
     <div class="card-hd">날짜별 출결 기록 불러오기 (나이스)</div>
     <div class="card-bd">
@@ -411,7 +425,7 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 
 <script>
 // ===== 상수 =====
-const STUDENT_COUNT = 26;
+function studentCount() { return (appData && appData.studentCount) || 26; }
 
 // 혜화여자고등학교 2026학년도 학교 휴업일 (평일 공휴일 + 재량휴업일)
 const SCHOOL_HOLIDAYS = new Set([
@@ -468,7 +482,8 @@ function loadData() {
     if (!appData.importedDates)        appData.importedDates        = [];
     if (!appData.importedPeriod)       appData.importedPeriod       = '';
     if (!appData.importedCount)        appData.importedCount        = 0;
-  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0 }; }
+    if (!appData.studentCount)         appData.studentCount         = 26;
+  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:26 }; }
 }
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
@@ -548,7 +563,7 @@ function renderStudentList() {
   const APTYPE = { menstrual:'생리통', fieldtrip:'체험학습', other:'그외' };
 
   const withAtt = [], noAtt = [];
-  for (let num=1; num<=STUDENT_COUNT; num++) {
+  for (let num=1; num<=studentCount(); num++) {
     const a      = att[num]||{};
     const hasAtt = !!(a.absent||a.late||a.earlyLeave||a.classMiss);
     const hasAny = hasAtt || !!(a.parentContact||a.docSubmit||a.naeis||a.memo);
@@ -801,7 +816,7 @@ function updateDLBadge() {
 function zero() { return {disease:0,unapproved:0,other:0,approved:0}; }
 function calcStats() {
   const s = {};
-  for (let i=1; i<=STUDENT_COUNT; i++) s[i]={absent:zero(),late:zero(),earlyLeave:zero(),classMiss:zero()};
+  for (let i=1; i<=studentCount(); i++) s[i]={absent:zero(),late:zero(),earlyLeave:zero(),classMiss:zero()};
   Object.entries(appData.initialStats||{}).forEach(([n,init]) => {
     const st=s[+n]; if(!st) return;
     ['absent','late','earlyLeave','classMiss'].forEach(cat => { if(init[cat]) Object.keys(zero()).forEach(k => { if(init[cat][k]) st[cat][k]+=init[cat][k]; }); });
@@ -834,7 +849,7 @@ function renderStatsTab() {
     '<br><span style="color:#AAA;font-size:10.5px">📌 제적예고: 인정 제외 결석 + (지각+조퇴+결과)÷3 → 35·45·55일</span>';
   const list = document.getElementById('stats-list');
   list.innerHTML = '';
-  for (let num=1; num<=STUDENT_COUNT; num++) {
+  for (let num=1; num<=studentCount(); num++) {
     const st = stats[num];
     const wl = warnLevel(st);
     const ab = Object.values(st.absent).reduce((s,v)=>s+v,0);
@@ -864,6 +879,11 @@ function toggleDLForm() {
   const open  = body.style.display === 'none';
   body.style.display  = open ? '' : 'none';
   arrow.textContent   = open ? '▼' : '▶';
+  if (open) {
+    const inp = document.getElementById('dl-num');
+    inp.max = studentCount();
+    inp.placeholder = `1 ~ ${studentCount()}`;
+  }
 }
 
 function autoFillDueDate(v) {
@@ -987,8 +1007,43 @@ function clearInitialData() {
 }
 function resetAll() {
   if(!confirm('모든 데이터를 삭제합니다.\n정말 초기화하시겠습니까?')) return;
-  appData={dailyRecords:{},deadlines:[],initialStats:{},initialStatsPeriod:''};
+  const sc = appData.studentCount || 26;
+  appData={dailyRecords:{},deadlines:[],initialStats:{},initialStatsPeriod:'',studentCount:sc};
   saveData(); renderInitCard(); showToast('초기화 완료.');
+}
+
+// ===== 학급 인원 설정 =====
+function studentsWithRecords(fromNum, toNum) {
+  const set = new Set();
+  Object.values(appData.dailyRecords).forEach(dayRec => {
+    for (let n = fromNum; n <= toNum; n++) {
+      const r = dayRec[n];
+      if (r && (r.absent || r.late || r.earlyLeave || r.classMiss || r.approvedType || r.note)) set.add(n);
+    }
+  });
+  appData.deadlines.forEach(d => { if (d.studentNo >= fromNum && d.studentNo <= toNum) set.add(d.studentNo); });
+  return [...set].sort((a,b) => a-b);
+}
+function changeStudentCount() {
+  const input = document.getElementById('new-student-count');
+  const newCount = parseInt(input.value, 10);
+  const cur = studentCount();
+  if (!newCount || newCount < 1 || newCount > 99) { showToast('1~99 사이의 숫자를 입력해주세요.'); return; }
+  if (newCount === cur) { showToast('현재 인원과 같습니다.'); input.value=''; return; }
+  if (newCount < cur) {
+    const affected = studentsWithRecords(newCount + 1, cur);
+    if (affected.length > 0) {
+      const msg = `⚠ ${affected.join(', ')}번 학생에게 출결 기록이 있습니다.\n\n인원을 줄이면 이 학생들이 목록에서 숨겨지지만\n데이터는 삭제되지 않습니다.\n\n계속하시겠습니까?`;
+      if (!confirm(msg)) return;
+    }
+  }
+  appData.studentCount = newCount;
+  saveData();
+  input.value = '';
+  document.getElementById('cur-student-count').textContent = newCount;
+  renderDailyTab();
+  renderStatsTab();
+  showToast(`인원이 ${newCount}명으로 변경됐습니다.`);
 }
 
 // ===== 날짜별 출결 파일 불러오기 (상세 형식) =====
@@ -1036,7 +1091,7 @@ function importDetailedRows(rows) {
     if (번호 !== null && 번호 !== undefined && String(번호).trim() !== '') {
       currentNum = parseInt(String(번호), 10);
     }
-    if (!currentNum || currentNum < 1 || currentNum > STUDENT_COUNT) continue;
+    if (!currentNum || currentNum < 1 || currentNum > studentCount()) continue;
     if (!출결구분) continue;
 
     // 날짜 파싱: "2026.03.05.(목)" → "2026-03-05"
@@ -1150,21 +1205,21 @@ function parseNaiesRows(rows) {
     const ab=zero(),la=zero(),el=zero(),cm=zero();
     if(format==='B4'){
       snum=typeof row[0]==='number'?row[0]:(typeof row[1]==='number'?row[1]:null);
-      if(!snum||snum<1||snum>STUDENT_COUNT) continue;
+      if(!snum||snum<1||snum>studentCount()) continue;
       ab.disease=n(3);ab.unapproved=n(4);ab.other=n(5);ab.approved=n(6);
       la.disease=n(10);la.unapproved=n(11);la.other=n(12);la.approved=n(13);
       el.disease=n(17);el.unapproved=n(18);el.other=n(19);el.approved=n(20);
       cm.disease=n(24);cm.unapproved=n(25);cm.other=n(26);cm.approved=n(27);
     } else if(format==='A3'){
       snum=typeof row[0]==='number'?row[0]:(typeof row[1]==='number'?row[1]:null);
-      if(!snum||snum<1||snum>STUDENT_COUNT) continue;
+      if(!snum||snum<1||snum>studentCount()) continue;
       ab.disease=n(3);ab.unapproved=n(4);ab.other=n(5);
       la.disease=n(8);la.unapproved=n(9);la.other=n(10);
       el.disease=n(13);el.unapproved=n(14);el.other=n(15);
       cm.disease=n(18);cm.unapproved=n(19);cm.other=n(20);
     } else {
       snum=typeof row[0]==='number'?row[0]:(typeof row[1]==='number'?row[1]:null);
-      if(!snum||snum<1||snum>STUDENT_COUNT) continue;
+      if(!snum||snum<1||snum>studentCount()) continue;
       ab.disease=n(2);ab.unapproved=n(3);ab.other=n(4);
       la.disease=n(5);la.unapproved=n(6);la.other=n(7);
       el.disease=n(8);el.unapproved=n(9);el.other=n(10);
@@ -1531,6 +1586,7 @@ function showToast(msg) {
 // ===== 초기화 =====
 function _initApp() {
   loadData();
+  document.getElementById('cur-student-count').textContent = studentCount();
   renderDailyTab();
   updateDLBadge();
   renderInitCard();
