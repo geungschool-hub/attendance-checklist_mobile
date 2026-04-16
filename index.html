@@ -65,9 +65,9 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 .s-row:active { background: #EEF3FC; transform: scale(.99); }
 .s-row.has-att { background: #FFFCF7; box-shadow: var(--sh); border-left: 3px solid var(--amber); padding-left: 11px; }
 @keyframes doc-pulse     { 0%,100%{box-shadow:var(--sh);}50%{box-shadow:var(--sh),0 0 0 2.5px rgba(230,126,34,.5);} }
-@keyframes doc-pulse-red { 0%,100%{box-shadow:var(--sh);}50%{box-shadow:var(--sh),0 0 0 2.5px rgba(192,57,43,.55);} }
+@keyframes doc-pulse-red { 0%,100%{box-shadow:var(--sh);}40%{box-shadow:var(--sh),0 0 0 3px rgba(192,57,43,.9),0 0 16px rgba(192,57,43,.45);} }
 .s-row.doc-warn         { animation: doc-pulse     2.2s ease-in-out infinite; }
-.s-row.doc-warn-overdue { animation: doc-pulse-red 2.2s ease-in-out infinite; }
+.s-row.doc-warn-overdue { animation: doc-pulse-red 1.1s ease-in-out infinite; }
 .s-num-wrap { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #E8EEF8; display: flex; align-items: center; justify-content: center; transition: background .1s; }
 .s-row.has-att .s-num-wrap { background: var(--amber); }
 .s-num { font-size: 16px; font-weight: 800; color: var(--navy); }
@@ -724,8 +724,12 @@ function renderStudentList() {
     if (a.late)       badges.innerHTML += `<span class="att-badge la">${TL[a.late]}지각</span>`;
     if (a.earlyLeave) badges.innerHTML += `<span class="att-badge el">${TL[a.earlyLeave]}조퇴</span>`;
     if (a.classMiss)  badges.innerHTML += `<span class="att-badge cm">${TL[a.classMiss]}결과</span>`;
-    if (urgentDocs[num] === 'overdue') badges.innerHTML += `<span class="att-badge" style="background:#FDECEA;color:#C0392B;border:1px solid #E8A0A0">📋 서류만료</span>`;
-    else if (urgentDocs[num] === 'warn') badges.innerHTML += `<span class="att-badge" style="background:#FFF3CD;color:#7A4500;border:1px solid #F5C842">📋 서류마감</span>`;
+    if (urgentDocs[num]) {
+      const dotColor = urgentDocs[num] === 'overdue' ? '#C0392B' : '#E67E22';
+      numWrap.style.position = 'relative';
+      numWrap.insertAdjacentHTML('beforeend',
+        `<span style="position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:${dotColor};border:2px solid white"></span>`);
+    }
     main.appendChild(badges);
 
     if (a.memo) {
@@ -791,11 +795,10 @@ function renderStudentList() {
       }
 
       if (urgentDocs[num]) {
-        const docTag = document.createElement('span');
-        const isOvr = urgentDocs[num] === 'overdue';
-        docTag.style.cssText = `font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;flex-shrink:0;white-space:nowrap;margin-left:auto;${isOvr ? 'color:#C0392B;background:#FDECEA' : 'color:#7A4500;background:#FFF3CD'}`;
-        docTag.textContent = isOvr ? '📋서류만료' : '📋서류';
-        row.appendChild(docTag);
+        const dotColor = urgentDocs[num] === 'overdue' ? '#C0392B' : '#E67E22';
+        numWrap.style.position = 'relative';
+        numWrap.insertAdjacentHTML('beforeend',
+          `<span style="position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:${dotColor};border:2px solid white"></span>`);
       }
 
       const chevron = document.createElement('span');
