@@ -373,7 +373,10 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
       <div class="card-bd" style="padding-bottom:4px">
         <p style="font-size:11px;color:#999;margin:0 0 10px">나이스 파일 업로드 시 이름이 있으면 자동으로 채워집니다.</p>
         <div id="name-grid"></div>
-        <button class="btn primary full" onclick="saveAllNames()" style="margin-top:10px">저장</button>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn red" onclick="clearAllNames()" style="flex:1">모두 지우기</button>
+          <button class="btn primary" onclick="saveAllNames()" style="flex:1">저장</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1124,6 +1127,13 @@ function renderNameGrid() {
     </div>`;
   }
   grid.innerHTML = html;
+}
+function clearAllNames() {
+  if (!confirm('입력된 이름을 모두 지웁니다.\n계속하시겠습니까?')) return;
+  document.querySelectorAll('#name-grid input').forEach(inp => inp.value = '');
+  appData.studentNames = {};
+  saveData();
+  showToast('이름을 모두 지웠습니다.');
 }
 function saveAllNames() {
   if (!appData.studentNames) appData.studentNames = {};
