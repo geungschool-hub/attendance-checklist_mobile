@@ -424,18 +424,11 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
   </div>
   <div class="card">
     <div class="card-hd" onclick="toggleSettingsCard()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
-      <span>학사 설정 (학년도 · 휴업일)</span>
+      <span>휴업일 설정</span>
       <span id="settings-card-arrow" style="font-size:12px;opacity:.8">▶</span>
     </div>
     <div id="settings-card-body" style="display:none">
       <div class="card-bd">
-        <div>
-          <label class="form-lbl">학년도</label>
-          <div style="display:flex;gap:8px">
-            <input class="form-inp" id="school-year-inp" type="number" min="2020" max="2040" placeholder="예) 2026" style="flex:1;min-width:0">
-            <button class="btn primary" onclick="saveSchoolYear()" style="flex-shrink:0">저장</button>
-          </div>
-        </div>
         <div>
           <div class="form-lbl" style="margin-bottom:8px">휴업일 목록 <span id="holiday-count" style="font-weight:400;color:#999"></span></div>
           <div id="holiday-list"></div>
@@ -513,6 +506,7 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 <script>
 // ===== 상수 =====
 function studentCount() { return (appData && appData.studentCount) || 26; }
+function schoolYear() { const d = new Date(); return d.getMonth() >= 2 ? d.getFullYear() : d.getFullYear() - 1; }
 
 // 기본 휴업일 (최초 설치 시 초기값 — 앱 내 설정에서 수정 가능)
 const DEFAULT_HOLIDAYS = [
@@ -577,9 +571,8 @@ function loadData() {
     if (!appData.importedCount)        appData.importedCount        = 0;
     if (!appData.studentCount)         appData.studentCount         = 26;
     if (!appData.studentNames)         appData.studentNames         = {};
-    if (!appData.schoolYear)           appData.schoolYear           = 2026;
     if (!appData.holidays)             appData.holidays             = DEFAULT_HOLIDAYS.map(h=>({...h}));
-  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:26, studentNames:{}, schoolYear:2026, holidays:DEFAULT_HOLIDAYS.map(h=>({...h})) }; }
+  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:26, studentNames:{}, holidays:DEFAULT_HOLIDAYS.map(h=>({...h})) }; }
 }
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
@@ -1134,7 +1127,6 @@ function importBackup(input) {
       if(imp.initialStats)    { appData.initialStats=imp.initialStats; if(imp.initialStatsPeriod) appData.initialStatsPeriod=imp.initialStatsPeriod; }
       if(imp.studentCount)    appData.studentCount    = imp.studentCount;
       if(imp.studentNames)    appData.studentNames    = imp.studentNames;
-      if(imp.schoolYear)      appData.schoolYear      = imp.schoolYear;
       if(imp.holidays)        appData.holidays        = imp.holidays;
       if(imp.importedDates)   appData.importedDates   = imp.importedDates;
       if(imp.importedPeriod)  appData.importedPeriod  = imp.importedPeriod;
@@ -1142,9 +1134,6 @@ function importBackup(input) {
       saveData();
       document.getElementById('cur-student-count').textContent = studentCount();
       document.getElementById('cur-student-count-badge').textContent = `(${studentCount()}명)`;
-      const yr = appData.schoolYear || 2026;
-      document.getElementById('hd-year').textContent = yr + '학년도';
-      document.title = `출결 관리 — ${yr}`;
       renderInitCard(); renderDetailImportCard(); renderDailyTab(); updateDLBadge();
       showToast('데이터를 불러왔습니다.');
     } catch(err) { showToast('불러오기 실패: '+err.message); }
@@ -1161,9 +1150,8 @@ function resetAll() {
   if(!confirm('모든 데이터를 삭제합니다.\n정말 초기화하시겠습니까?')) return;
   const sc = appData.studentCount || 26;
   const sn = appData.studentNames || {};
-  const sy = appData.schoolYear  || 2026;
   const sh = appData.holidays    || DEFAULT_HOLIDAYS.map(h=>({...h}));
-  appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:sc, studentNames:sn, schoolYear:sy, holidays:sh };
+  appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0, studentCount:sc, studentNames:sn, holidays:sh };
   saveData(); renderInitCard(); showToast('초기화 완료.');
 }
 
@@ -1217,10 +1205,7 @@ function toggleSettingsCard() {
   const open  = body.style.display === 'none';
   body.style.display = open ? '' : 'none';
   arrow.textContent  = open ? '▼' : '▶';
-  if (open) {
-    document.getElementById('school-year-inp').value = appData.schoolYear || 2026;
-    renderHolidayList();
-  }
+  if (open) renderHolidayList();
 }
 function renderHolidayList() {
   const list = document.getElementById('holiday-list');
@@ -1258,15 +1243,6 @@ function deleteHoliday(date) {
   appData.holidays = (appData.holidays||[]).filter(h=>h.date!==date);
   saveData(); renderHolidayList();
   showToast('삭제했습니다.');
-}
-function saveSchoolYear() {
-  const v = parseInt(document.getElementById('school-year-inp').value, 10);
-  if (!v || v < 2020 || v > 2040) { showToast('올바른 학년도를 입력해주세요.'); return; }
-  appData.schoolYear = v;
-  saveData();
-  document.getElementById('hd-year').textContent = v + '학년도';
-  document.title = `출결 관리 — ${v}`;
-  showToast(`${v}학년도로 변경됐습니다.`);
 }
 
 // ===== 학급 인원 카드 토글 =====
@@ -1883,7 +1859,7 @@ function showToast(msg) {
 // ===== 초기화 =====
 function _initApp() {
   loadData();
-  const yr = appData.schoolYear || 2026;
+  const yr = schoolYear();
   document.getElementById('hd-year').textContent = yr + '학년도';
   document.title = `출결 관리 — ${yr}`;
   document.getElementById('cur-student-count').textContent = studentCount();
