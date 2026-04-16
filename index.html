@@ -350,18 +350,8 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
       <p style="font-size:11px;color:#E67E22">⚠ 같은 기간이 이전 기록 초기값에도 있으면 누적현황이 중복 집계될 수 있습니다.</p>
     </div>
   </div>
-  <div class="card">
-    <div class="card-hd purple">이전 기록 초기값 (나이스)</div>
-    <div class="card-bd">
-      <p id="init-status-msg" style="font-size:13px;color:#666"></p>
-      <label class="btn ghost full" style="cursor:pointer">📂 엑셀 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadExcelFile(this)"></label>
-      <button class="btn red sm" onclick="clearInitialData()">초기값 삭제</button>
-      <p style="font-size:11px;color:#888">나이스 '학급별 출결현황' Excel 파일</p>
-      <div style="background:#F0FFF4;border-radius:8px;padding:10px 12px;font-size:11px;color:#1A5C3A;line-height:1.8">
-        🔒 입력한 모든 정보는 이 기기에만 저장되며, 외부 서버로 전송되지 않습니다.
-      </div>
-    </div>
-  </div>
+  <!-- 이전 기록 초기값 카드 비활성화 (기능은 유지) -->
+  <p id="init-status-msg" style="display:none"></p>
   <div class="card">
     <div class="card-hd">백업 / 복원</div>
     <div class="card-bd">
