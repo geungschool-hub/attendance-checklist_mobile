@@ -334,6 +334,16 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 <!-- 데이터 탭 -->
 <div id="tab-data" class="tab-pane">
   <div class="card">
+    <div class="card-hd">날짜별 출결 기록 불러오기 (나이스)</div>
+    <div class="card-bd">
+      <p id="detail-import-msg" style="font-size:13px;color:#666"></p>
+      <label class="btn ghost full" style="cursor:pointer">📂 엑셀 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadDetailedExcelFile(this)"></label>
+      <button class="btn red sm" onclick="clearDetailImport()">불러온 기록 삭제</button>
+      <p style="font-size:11px;color:#888">나이스 출결 상세 조회 파일 (일자·번호·출결구분·사유 형식)</p>
+      <p style="font-size:11px;color:#E67E22">⚠ 같은 기간이 이전 기록 초기값에도 있으면 누적현황이 중복 집계될 수 있습니다.</p>
+    </div>
+  </div>
+  <div class="card">
     <div class="card-hd purple">이전 기록 초기값 (나이스)</div>
     <div class="card-bd">
       <p id="init-status-msg" style="font-size:13px;color:#666"></p>
@@ -432,11 +442,14 @@ function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) appData = JSON.parse(raw);
-    if (!appData.dailyRecords)       appData.dailyRecords = {};
-    if (!appData.deadlines)          appData.deadlines    = [];
-    if (!appData.initialStats)       appData.initialStats = {};
-    if (!appData.initialStatsPeriod) appData.initialStatsPeriod = '';
-  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'' }; }
+    if (!appData.dailyRecords)         appData.dailyRecords         = {};
+    if (!appData.deadlines)            appData.deadlines            = [];
+    if (!appData.initialStats)         appData.initialStats         = {};
+    if (!appData.initialStatsPeriod)   appData.initialStatsPeriod   = '';
+    if (!appData.importedDates)        appData.importedDates        = [];
+    if (!appData.importedPeriod)       appData.importedPeriod       = '';
+    if (!appData.importedCount)        appData.importedCount        = 0;
+  } catch { appData = { dailyRecords:{}, deadlines:[], initialStats:{}, initialStatsPeriod:'', importedDates:[], importedPeriod:'', importedCount:0 }; }
 }
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
@@ -959,6 +972,131 @@ function resetAll() {
   saveData(); renderInitCard(); showToast('초기화 완료.');
 }
 
+// ===== 날짜별 출결 파일 불러오기 (상세 형식) =====
+const ATT_TYPE_MAP = {
+  '질병결석':    { field:'absent',     type:'disease'    },
+  '미인정결석':  { field:'absent',     type:'unapproved' },
+  '기타결석':    { field:'absent',     type:'other'      },
+  '출석인정결석':{ field:'absent',     type:'approved'   },
+  '질병지각':    { field:'late',       type:'disease'    },
+  '미인정지각':  { field:'late',       type:'unapproved' },
+  '기타지각':    { field:'late',       type:'other'      },
+  '출석인정지각':{ field:'late',       type:'approved'   },
+  '질병조퇴':    { field:'earlyLeave', type:'disease'    },
+  '미인정조퇴':  { field:'earlyLeave', type:'unapproved' },
+  '기타조퇴':    { field:'earlyLeave', type:'other'      },
+  '출석인정조퇴':{ field:'earlyLeave', type:'approved'   },
+  '질병결과':    { field:'classMiss',  type:'disease'    },
+  '미인정결과':  { field:'classMiss',  type:'unapproved' },
+  '기타결과':    { field:'classMiss',  type:'other'      },
+  '출석인정결과':{ field:'classMiss',  type:'approved'   },
+};
+
+function inferApprovedType(사유) {
+  if (!사유) return 'other';
+  const s = String(사유);
+  if (s.includes('생리통')) return 'menstrual';
+  if (s.includes('체험학습') || s.includes('현장체험')) return 'fieldtrip';
+  return 'other';
+}
+
+function importDetailedRows(rows) {
+  let imported = 0, skipped = 0;
+  let currentNum = null;
+  const newDates = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(v => v == null)) continue;
+    // 헤더 행 건너뜀
+    if (String(row[0] || '').includes('일자')) continue;
+
+    const [일자, 번호, , 출결구분, , 사유] = row;
+
+    // 번호 carry-forward (연속 행에서 null이면 이전 학생 유지)
+    if (번호 !== null && 번호 !== undefined && String(번호).trim() !== '') {
+      currentNum = parseInt(String(번호), 10);
+    }
+    if (!currentNum || currentNum < 1 || currentNum > STUDENT_COUNT) continue;
+    if (!출결구분) continue;
+
+    // 날짜 파싱: "2026.03.05.(목)" → "2026-03-05"
+    const dm = String(일자 || '').match(/(\d{4})\.(\d{2})\.(\d{2})/);
+    if (!dm) continue;
+    const date = `${dm[1]}-${dm[2]}-${dm[3]}`;
+
+    const parsed = ATT_TYPE_MAP[String(출결구분).trim()];
+    if (!parsed) continue;
+
+    if (!appData.dailyRecords[date]) appData.dailyRecords[date] = { attendance: {} };
+    const att = appData.dailyRecords[date].attendance;
+    if (!att[currentNum]) att[currentNum] = {};
+
+    // 이미 해당 필드가 있으면 스킵 (수동 입력 우선)
+    if (att[currentNum][parsed.field]) { skipped++; continue; }
+
+    att[currentNum][parsed.field] = parsed.type;
+    att[currentNum].naeis = true;
+
+    if (parsed.type === 'approved') {
+      if (parsed.field === 'absent' && !att[currentNum].approvedType)
+        att[currentNum].approvedType = inferApprovedType(사유);
+    }
+    if (사유 && !att[currentNum].memo)
+      att[currentNum].memo = String(사유).trim();
+
+    newDates.add(date);
+    imported++;
+  }
+  return { imported, skipped, dates: [...newDates] };
+}
+
+function loadDetailedExcelFile(input) {
+  const file = input.files[0]; if (!file) return;
+  if (typeof XLSX === 'undefined') { showToast('Excel 파서 로드 실패.\n인터넷 연결을 확인해주세요.'); input.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
+      const { imported, skipped, dates } = importDetailedRows(rows);
+      if (!imported) { showToast('불러올 출결 기록이 없습니다.\n파일 형식을 확인해주세요.'); input.value=''; return; }
+      // 불러온 날짜 목록 저장 (삭제 시 활용)
+      dates.forEach(d => { if (!appData.importedDates.includes(d)) appData.importedDates.push(d); });
+      // 기간 표시 추출
+      const sorted = [...appData.importedDates].sort();
+      if (sorted.length) {
+        const s = parseDate(sorted[0]), e2 = parseDate(sorted[sorted.length-1]);
+        appData.importedPeriod = `${s.getFullYear()}년 ${s.getMonth()+1}월 ${s.getDate()}일 ~ ${e2.getMonth()+1}월 ${e2.getDate()}일`;
+      }
+      appData.importedCount = (appData.importedCount || 0) + imported;
+      saveData(); renderDetailImportCard(); updateDLBadge();
+      showToast(`날짜별 기록 ${imported}건 추가${skipped ? '\n기존 기록 '+skipped+'건 유지' : ''}`);
+    } catch(err) { showToast('파일 읽기 오류: ' + err.message); }
+    input.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderDetailImportCard() {
+  const msg = document.getElementById('detail-import-msg');
+  if (!msg) return;
+  const has = appData.importedDates && appData.importedDates.length > 0;
+  msg.textContent = has
+    ? `✅ ${appData.importedCount}건 불러옴 (${appData.importedPeriod})`
+    : '불러온 기록 없음';
+  msg.style.color = has ? '#1A5C3A' : '#999';
+}
+
+function clearDetailImport() {
+  if (!appData.importedDates || !appData.importedDates.length) { showToast('불러온 기록이 없습니다.'); return; }
+  if (!confirm(`불러온 날짜(${appData.importedDates.length}일)의 출결 기록을 모두 삭제합니다.\n수동으로 수정한 기록도 함께 삭제됩니다.`)) return;
+  appData.importedDates.forEach(date => { delete appData.dailyRecords[date]; });
+  appData.importedDates = []; appData.importedPeriod = ''; appData.importedCount = 0;
+  saveData(); renderDetailImportCard(); showToast('불러온 기록을 삭제했습니다.');
+}
+
 // ===== Excel 파싱 =====
 function loadExcelFile(input) {
   const file=input.files[0]; if(!file) return;
@@ -1377,6 +1515,7 @@ function _initApp() {
   renderDailyTab();
   updateDLBadge();
   renderInitCard();
+  renderDetailImportCard();
   renderNaeisBanner();
 }
 
