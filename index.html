@@ -793,7 +793,8 @@ function attSelClass(value, selected) {
 function openSheet(num) {
   _sheetNum = num;
   const a   = ((appData.dailyRecords[currentDate]||{}).attendance||{})[num] || {};
-  document.getElementById('sheet-title').textContent = `${num}번 학생`;
+  const sNameSheet = (appData.studentNames || {})[num] || '';
+  document.getElementById('sheet-title').textContent = sNameSheet ? `${num}번 ${sNameSheet}` : `${num}번 학생`;
 
   const abOpts = ABSENCE_OPTS.map(o =>
     `<button class="opt-btn${attSelClass(o.value, a.absent)}" onclick="setAtt(${num},'absent','${o.value}')">${o.label}</button>`
@@ -1047,6 +1048,7 @@ function renderDeadlinesTab() {
     .sort((a,b) => { if(a.submitted!==b.submitted) return a.submitted?1:-1; return a.dueDate.localeCompare(b.dueDate); });
   if (!sorted.length) { list.innerHTML='<div class="empty-state"><span class="es-icon">✓</span>제출 기한이 없습니다</div>'; return; }
   list.innerHTML = '';
+  const dlNames = appData.studentNames || {};
   sorted.forEach(dl => {
     const diff = Math.ceil((parseDate(dl.dueDate) - new Date(new Date().toDateString())) / 86400000);
     const cls  = dl.submitted ? 'done-item' : diff<0 ? 'urg' : diff<=3 ? 'warn' : 'ok';
@@ -1054,10 +1056,11 @@ function renderDeadlinesTab() {
     const card = document.createElement('div');
     card.className = `dl-card ${cls}`;
     const goDate = dl.absenceDate || dl.dueDate;
+    const dlNumLabel = dlNames[dl.studentNo] ? `${dl.studentNo}번(${dlNames[dl.studentNo]})` : `${dl.studentNo}번`;
     card.innerHTML = `
       <div class="dl-top" onclick="currentDate='${goDate}';switchTab('daily')" style="cursor:pointer;-webkit-tap-highlight-color:transparent">
         <div class="dl-dday">${dday}</div>
-        <div style="flex:1"><div class="dl-name">${dl.studentNo}번 — ${TYPE_LABELS[dl.type]||dl.type}</div>
+        <div style="flex:1"><div class="dl-name">${dlNumLabel} — ${TYPE_LABELS[dl.type]||dl.type}</div>
         <div class="dl-meta">기한: ${formatDate(dl.dueDate)}${dl.absenceDate?' / 결석: '+formatDate(dl.absenceDate):''}</div></div>
         <span style="font-size:18px;color:#CCC;line-height:1;flex-shrink:0">›</span>
       </div>
@@ -1349,7 +1352,7 @@ function inferApprovedType(사유) {
 }
 
 function importDetailedRows(rows) {
-  let imported = 0, skipped = 0;
+  let imported = 0, skipped = 0, newNames = 0;
   let currentNum = null;
   const newDates = new Set();
 
@@ -1368,6 +1371,7 @@ function importDetailedRows(rows) {
       const 이름 = 이름Raw ? String(이름Raw).trim() : '';
       if (이름 && currentNum >= 1 && !appData.studentNames[currentNum]) {
         appData.studentNames[currentNum] = 이름;
+        newNames++;
       }
     }
     if (!currentNum || currentNum < 1 || currentNum > studentCount()) continue;
@@ -1401,7 +1405,7 @@ function importDetailedRows(rows) {
     newDates.add(date);
     imported++;
   }
-  return { imported, skipped, dates: [...newDates] };
+  return { imported, skipped, dates: [...newDates], newNames };
 }
 
 function loadDetailedExcelFile(input) {
@@ -1413,7 +1417,7 @@ function loadDetailedExcelFile(input) {
       const wb = XLSX.read(e.target.result, { type:'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
-      const { imported, skipped, dates } = importDetailedRows(rows);
+      const { imported, skipped, dates, newNames } = importDetailedRows(rows);
       if (!imported) { showToast('불러올 출결 기록이 없습니다.\n파일 형식을 확인해주세요.'); input.value=''; return; }
       // 불러온 날짜 목록 저장 (삭제 시 활용)
       dates.forEach(d => { if (!appData.importedDates.includes(d)) appData.importedDates.push(d); });
@@ -1425,7 +1429,7 @@ function loadDetailedExcelFile(input) {
       }
       appData.importedCount = (appData.importedCount || 0) + imported;
       saveData(); renderDetailImportCard(); updateDLBadge();
-      showToast(`날짜별 기록 ${imported}건 추가${skipped ? '\n기존 기록 '+skipped+'건 유지' : ''}`);
+      showToast(`날짜별 기록 ${imported}건 추가${skipped ? '\n기존 기록 '+skipped+'건 유지' : ''}${newNames ? '\n이름 '+newNames+'명 자동 인식' : ''}`);
     } catch(err) { showToast('파일 읽기 오류: ' + err.message); }
     input.value = '';
   };
@@ -1663,7 +1667,7 @@ function renderWeeklyView() {
 
   if (students.length) {
     html += `<div class="card"><div class="card-hd">주간 출결 현황 <span style="font-weight:400;font-size:11px;opacity:.8">— ${students.length}명</span></div>`;
-    html += `<div style="overflow-x:auto;padding:8px"><table class="week-table"><thead><tr><th style="width:28px">번호</th>`;
+    html += `<div style="overflow-x:auto;padding:8px"><table class="week-table"><thead><tr><th style="width:38px">번호</th>`;
     days.forEach(d => {
       const idx = allDays.indexOf(d);
       const [,mo,dd] = d.split('-');
@@ -1671,8 +1675,10 @@ function renderWeeklyView() {
       html += `<th class="${cls}">${+mo}/${+dd}<br>(${DAY_NAMES[idx]})</th>`;
     });
     html += '</tr></thead><tbody>';
+    const wkNames = appData.studentNames || {};
     students.forEach(num => {
-      html += `<tr><td>${num}</td>`;
+      const wkName = wkNames[num] || '';
+      html += `<tr><td>${num}${wkName ? `<br><span style="font-size:8px;color:var(--muted);font-weight:400">${wkName}</span>` : ''}</td>`;
       days.forEach((d, i) => {
         const idx = allDays.indexOf(d);
         const a   = dayAtts[i][num] || {};
@@ -1775,14 +1781,14 @@ function renderMonthlyView() {
   const container = document.getElementById('rec-month-content');
   if (!absences.length) { container.innerHTML='<div class="empty-state"><span class="es-icon">✅</span>이번 달 결석 기록이 없습니다</div>'; return; }
 
-  const studentCount = new Set(absences.map(x=>x.num)).size;
+  const uniqueStudentCount = new Set(absences.map(x=>x.num)).size;
   const undone       = absences.filter(x => x.a.absent !== 'unapproved' && !x.a.docSubmit).length;
   const ABSENT_LBL   = { disease:'질병결석', unapproved:'미인정결석', other:'기타결석', approved:'인정결석' };
   const APTYPE_LBL   = { menstrual:'생리통', fieldtrip:'체험학습', other:'그외' };
 
   let html = `<div class="sum-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
     <div class="chip"><div class="cn" style="font-size:22px;color:var(--red)">${absences.length}</div><div class="cl">총 결석</div></div>
-    <div class="chip"><div class="cn" style="font-size:22px;color:var(--navy)">${studentCount}</div><div class="cl">해당 학생</div></div>
+    <div class="chip"><div class="cn" style="font-size:22px;color:var(--navy)">${uniqueStudentCount}</div><div class="cl">해당 학생</div></div>
     <div class="chip"><div class="cn" style="font-size:22px;color:${undone>0?'var(--amber)':'#43A047'}">${undone}</div><div class="cl">서류미제출</div></div>
   </div>`;
 
