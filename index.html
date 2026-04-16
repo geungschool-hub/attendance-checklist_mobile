@@ -190,11 +190,26 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 /* ── 주간 표 ── */
 .week-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .week-table th { background: var(--navy); color: white; padding: 6px 4px; text-align: center; font-size: 11px; white-space: nowrap; line-height: 1.3; }
-.week-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: top; min-width: 56px; }
+.week-table td { padding: 5px 3px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: middle; }
+.week-table td:first-child { width: 28px; font-weight: 800; color: var(--navy); font-size: 12px; }
 .week-table .today-col { background: #EBF3FF; }
 .week-table th.today-col { background: var(--blue); }
 .week-table .weekend { background: #FFF9F0; }
 .week-table tr:last-child td { border-bottom: none; }
+/* ── 주간 원형 뱃지 ── */
+.wk-dot { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:11px; font-weight:800; color:white; flex-shrink:0; }
+.wk-dot.dis  { background:#1E5FA8; }
+.wk-dot.unap { background:#C0392B; }
+.wk-dot.oth  { background:#888;    }
+.wk-dot.appr { background:#2E7D32; }
+.wk-dot-wrap { display:flex; flex-wrap:wrap; justify-content:center; gap:2px; }
+.wk-status   { display:flex; flex-direction:column; align-items:center; gap:1px; margin-top:3px; }
+.wk-legend   { font-size:10px; color:#999; padding:7px 10px; border-top:1px solid var(--line); display:flex; gap:10px; flex-wrap:wrap; line-height:1.9; }
+.wk-leg-dot  { display:inline-block; width:8px; height:8px; border-radius:50%; vertical-align:middle; margin-right:2px; }
+.wk-leg-dot.dis  { background:#1E5FA8; }
+.wk-leg-dot.unap { background:#C0392B; }
+.wk-leg-dot.oth  { background:#888; }
+.wk-leg-dot.appr { background:#2E7D32; }
 
 /* ── 월별 카드 ── */
 .ab-card { background: white; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.07); margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--line); }
@@ -1378,9 +1393,12 @@ function renderWeeklyView() {
 
   let html = '';
 
+  const TYPE_DOT = { disease:'dis', unapproved:'unap', other:'oth', approved:'appr' };
+  const dot = (type, letter) => `<span class="wk-dot ${TYPE_DOT[type]||'oth'}">${letter}</span>`;
+
   if (students.length) {
     html += `<div class="card"><div class="card-hd">주간 출결 현황 <span style="font-weight:400;font-size:11px;opacity:.8">— ${students.length}명</span></div>`;
-    html += `<div style="overflow-x:auto;padding:8px"><table class="week-table"><thead><tr><th>번호</th>`;
+    html += `<div style="overflow-x:auto;padding:8px"><table class="week-table"><thead><tr><th style="width:28px">번호</th>`;
     days.forEach(d => {
       const idx = allDays.indexOf(d);
       const [,mo,dd] = d.split('-');
@@ -1389,32 +1407,39 @@ function renderWeeklyView() {
     });
     html += '</tr></thead><tbody>';
     students.forEach(num => {
-      html += `<tr><td style="font-weight:800;color:var(--navy)">${num}</td>`;
+      html += `<tr><td>${num}</td>`;
       days.forEach((d, i) => {
         const idx = allDays.indexOf(d);
         const a   = dayAtts[i][num] || {};
         const cls = d===today ? 'today-col' : idx>=5 ? 'weekend' : '';
+        let dots = '';
+        if (a.absent)     dots += dot(a.absent, '결');
+        if (a.late)       dots += dot(a.late, '지');
+        if (a.earlyLeave) dots += dot(a.earlyLeave, '조');
+        if (a.classMiss)  dots += dot(a.classMiss, '과');
         let b = '';
-        if (a.absent) {
-          const ex = a.absent==='approved'&&a.approvedType ? `(${APTYPE[a.approvedType]||a.approvedType})` : '';
-          const bc = a.absent==='unapproved' ? 'un' : 'ab';
-          b += `<span class="att-badge ${bc}" style="font-size:10px;padding:2px 4px">${TL[a.absent]}결${ex}</span>`;
-        }
-        if (a.late)       b += `<span class="att-badge la" style="font-size:10px;padding:2px 4px">${TL[a.late]}지각</span>`;
-        if (a.earlyLeave) b += `<span class="att-badge el" style="font-size:10px;padding:2px 4px">${TL[a.earlyLeave]}조퇴</span>`;
-        if (a.classMiss)  b += `<span class="att-badge cm" style="font-size:10px;padding:2px 4px">${TL[a.classMiss]}결과</span>`;
-        if (b) {
+        if (dots) {
+          b += `<div class="wk-dot-wrap">${dots}</div>`;
           const si = [];
           if (!checkDisabled(a,'docSubmit')) si.push(`<span style="font-size:8px;color:${a.docSubmit?'#43A047':'#E67E22'}">${a.docSubmit?'✓서류':'○서류'}</span>`);
           if (!checkDisabled(a,'naeis'))     si.push(`<span style="font-size:8px;color:${a.naeis?'#43A047':'#E67E22'}">${a.naeis?'✓나이스':'○나이스'}</span>`);
-          if (si.length) b += `<div style="display:flex;flex-direction:column;gap:1px;margin-top:2px">${si.join('')}</div>`;
+          if (si.length) b += `<div class="wk-status">${si.join('')}</div>`;
         }
         if (a.memo) b += `<div style="font-size:8px;color:#555;font-style:italic;margin-top:2px">${a.memo}</div>`;
         html += `<td class="${cls}">${b||'<span style="color:#DDD;font-size:10px">—</span>'}</td>`;
       });
       html += '</tr>';
     });
-    html += '</tbody></table></div></div>';
+    html += `</tbody></table></div>
+    <div class="wk-legend">
+      <span><b>결</b>=결석 &nbsp;<b>지</b>=지각 &nbsp;<b>조</b>=조퇴 &nbsp;<b>과</b>=결과</span>
+      <span>
+        <span class="wk-leg-dot dis"></span>질병&nbsp;
+        <span class="wk-leg-dot unap"></span>미인정&nbsp;
+        <span class="wk-leg-dot oth"></span>기타&nbsp;
+        <span class="wk-leg-dot appr"></span>인정
+      </span>
+    </div></div>`;
   }
 
   // 주간 미처리 현황
