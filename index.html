@@ -64,6 +64,8 @@ body { font-family: -apple-system, 'Malgun Gothic', sans-serif; background: var(
 .s-row { background: white; border-radius: 14px; padding: 12px 14px 12px 14px; display: flex; align-items: center; gap: 12px; box-shadow: var(--sh); cursor: pointer; min-height: 62px; transition: background .1s, transform .08s; }
 .s-row:active { background: #EEF3FC; transform: scale(.99); }
 .s-row.has-att { background: #FFFCF7; box-shadow: var(--sh); border-left: 3px solid var(--amber); padding-left: 11px; }
+@keyframes doc-pulse { 0%,100%{box-shadow:var(--sh);}50%{box-shadow:var(--sh),0 0 0 2.5px rgba(230,126,34,.5);} }
+.s-row.doc-warn { animation: doc-pulse 2.2s ease-in-out infinite; }
 .s-num-wrap { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #E8EEF8; display: flex; align-items: center; justify-content: center; transition: background .1s; }
 .s-row.has-att .s-num-wrap { background: var(--amber); }
 .s-num { font-size: 16px; font-weight: 800; color: var(--navy); }
@@ -662,6 +664,14 @@ function renderStudentList() {
   list.innerHTML = '';
   const APTYPE = { menstrual:'생리통', fieldtrip:'체험학습', other:'그외' };
 
+  // 미제출 서류 기한 D-2 이하인 학생
+  const today0 = new Date(new Date().toDateString());
+  const urgentDocs = {};
+  (appData.deadlines || []).forEach(dl => {
+    if (dl.submitted) return;
+    if (Math.ceil((parseDate(dl.dueDate) - today0) / 86400000) <= 2) urgentDocs[dl.studentNo] = true;
+  });
+
   const withAtt = [], noAtt = [];
   for (let num=1; num<=studentCount(); num++) {
     const a      = att[num]||{};
@@ -676,7 +686,7 @@ function renderStudentList() {
     const hasAtt = !!(a.absent||a.late||a.earlyLeave||a.classMiss);
 
     const row = document.createElement('div');
-    row.className = 's-row has-att';
+    row.className = `s-row has-att${urgentDocs[num] ? ' doc-warn' : ''}`;
     row.onclick   = () => openSheet(num);
 
     const numWrap = document.createElement('div');
@@ -707,6 +717,7 @@ function renderStudentList() {
     if (a.late)       badges.innerHTML += `<span class="att-badge la">${TL[a.late]}지각</span>`;
     if (a.earlyLeave) badges.innerHTML += `<span class="att-badge el">${TL[a.earlyLeave]}조퇴</span>`;
     if (a.classMiss)  badges.innerHTML += `<span class="att-badge cm">${TL[a.classMiss]}결과</span>`;
+    if (urgentDocs[num]) badges.innerHTML += `<span class="att-badge" style="background:#FFF3CD;color:#7A4500;border:1px solid #F5C842">📋 서류마감</span>`;
     main.appendChild(badges);
 
     if (a.memo) {
@@ -752,7 +763,7 @@ function renderStudentList() {
     grid.className = 'compact-grid';
     for (const num of noAtt) {
       const row = document.createElement('div');
-      row.className = 's-row compact';
+      row.className = `s-row compact${urgentDocs[num] ? ' doc-warn' : ''}`;
       row.onclick   = () => openSheet(num);
 
       const numWrap = document.createElement('div');
@@ -761,15 +772,21 @@ function renderStudentList() {
       numEl.className = 's-num';
       numEl.textContent = num;
       numWrap.appendChild(numEl);
+      row.appendChild(numWrap);
 
       const cName = (appData.studentNames || {})[num] || '';
       if (cName) {
         const nameEl = document.createElement('div');
         nameEl.className = 's-name';
         nameEl.textContent = cName;
-        row.appendChild(numWrap); row.appendChild(nameEl);
-      } else {
-        row.appendChild(numWrap);
+        row.appendChild(nameEl);
+      }
+
+      if (urgentDocs[num]) {
+        const docTag = document.createElement('span');
+        docTag.style.cssText = 'font-size:9px;font-weight:700;color:#7A4500;background:#FFF3CD;border-radius:4px;padding:1px 5px;flex-shrink:0;white-space:nowrap;margin-left:auto';
+        docTag.textContent = '📋서류';
+        row.appendChild(docTag);
       }
 
       const chevron = document.createElement('span');
