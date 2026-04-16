@@ -506,6 +506,11 @@ function saveData() {
 
 // ===== 탭 전환 =====
 const TABS = ['daily','stats','deadlines','record','data'];
+function goToDate(date) {
+  document.querySelector('.stat-detail-overlay')?.remove();
+  currentDate = date;
+  switchTab('daily');
+}
 function switchTab(tab) {
   TABS.forEach(t => {
     document.getElementById(`tab-${t}`).classList.toggle('active', t===tab);
@@ -1318,7 +1323,7 @@ function showStatDetail(num, cat) {
     if (dates.length) {
       const tags = dates.map(date => {
         const pd = parseDate(date);
-        return `<span style="display:inline-block;background:#EBF3FF;color:var(--navy);border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600">${pd.getMonth()+1}/${pd.getDate()}(${DAYS[pd.getDay()]})</span>`;
+        return `<span onclick="goToDate('${date}')" style="display:inline-block;background:#EBF3FF;color:var(--navy);border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">${pd.getMonth()+1}/${pd.getDate()}(${DAYS[pd.getDay()]})</span>`;
       }).join('');
       datesHtml += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${tags}</div>`;
     }
